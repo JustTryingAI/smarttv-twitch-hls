@@ -11,6 +11,7 @@ var Play_CanLowLatency = true;
 var Play_PanelHideID = null;
 var Play_quality = 'source';
 var Play_qualityPlaying = Play_quality;
+var Play_forceAvplayLive = false;
 var Play_isFullScreen = true;
 var Play_ChatPositionsBF;
 var Play_ChatEnableBF;
@@ -206,7 +207,9 @@ var Play_ChatFontObj = [];
 
 var hls;
 var Play_avplay;
+var Play_avplay_obj = null;
 var Play_avplay_hls_player;
+var Play_black_overlay = null;
 var Play_BufferPercentage = 0;
 var Play_bufferingcomplete = false;
 var Play_oldcurrentTime = 0;
@@ -220,10 +223,30 @@ function initHLSPlayer() {
     video.id = 'hlsplayer';
     video.style.width = '100%';
     video.style.height = '100%';
+    video.style.position = 'absolute';
+    video.style.zIndex = '0';
+    video.style.backgroundColor = 'black';
+    video.style.visibility = 'hidden';
     video.onplay = function() {
         Play_Playing = true;
     };
     video.onpause = function() {
+        Play_Playing = false;
+    };
+    video.onplaying = function () {
+        video.style.visibility = 'visible';
+        Play_HideBufferDialog();
+        Play_HideBlackOverlay();
+    };
+    video.oncanplay = function () {
+        Play_HideBufferDialog();
+        Play_HideBlackOverlay();
+    };
+    video.onwaiting = function () {
+        if (!Play_Playing) return;
+        Play_showBufferDialog();
+    };
+    video.onended = function () {
         Play_Playing = false;
     };
 
@@ -254,15 +277,17 @@ function initHLSPlayer() {
 
 function Play_PreStart() {
     if (Main_IsNotBrowser) {
-        //<object id="av-player" type="application/avplayer" style="width:100%; height:100%; position: absolute;"></object>
-        // var avplay = document.createElement('object');
-        // avplay.setAttribute('type', 'application/avplayer');
-        // avplay.setAttribute('style', 'width:50%; height:100%; position: absolute;');
-        // document.getElementById('scene2').appendChild(avplay);
+        var avplay = document.createElement('object');
+        avplay.setAttribute('id', 'av-player');
+        avplay.setAttribute('type', 'application/avplayer');
+        avplay.setAttribute('style', 'width:100%; height:100%; position: absolute; z-index: 0;');
+        document.getElementById('scene2').appendChild(avplay);
+        Play_avplay_obj = avplay;
         Play_avplay = webapis.avplay;
         Play_TizenVersion = tizen.systeminfo.getCapability('http://tizen.org/feature/platform.version');
     }
 
+    Play_EnsureBlackOverlay();
     initHLSPlayer();
 
     Play_chat_container = document.getElementById('chat_container0');
@@ -354,14 +379,19 @@ function Play_StopAndCloseAndPlay(url) {
 
 function Play_StopAndClose() {
     try {
-        // Play_avplay.stop();
-        Play_avplay_hls_player.pause();
+        if (Main_IsNotBrowser && Play_avplay) Play_avplay.stop();
     } catch (e) {
         console.trace('Play_StopAndClose stop', e);
     }
 
     try {
-        // Play_avplay.close();
+        if (Play_avplay_hls_player) Play_avplay_hls_player.pause();
+    } catch (e) {
+        console.trace('Play_StopAndClose stop hls', e);
+    }
+
+    try {
+        if (Main_IsNotBrowser && Play_avplay) Play_avplay.close();
     } catch (e) {
         console.trace('Play_StopAndClose close', e);
     }
@@ -369,10 +399,66 @@ function Play_StopAndClose() {
 
 function Play_OpenUrl(url) {
     try {
-        // Play_avplay.open(url);
+        Play_UseAvplay();
+        if (Main_IsNotBrowser && Play_avplay) Play_avplay.open(url);
     } catch (e) {
         console.log('Play_OpenUrl open url', url);
         console.trace('Play_OpenUrl open', e);
+    }
+}
+
+function Play_SetAvplayVisible(show) {
+    if (Play_avplay_obj) Play_avplay_obj.style.display = show ? 'block' : 'none';
+}
+
+function Play_SetHlsVisible(show) {
+    if (Play_avplay_hls_player) Play_avplay_hls_player.style.display = show ? 'block' : 'none';
+}
+
+function Play_EnsureBlackOverlay() {
+    if (Play_black_overlay) return;
+    var overlay = document.createElement('div');
+    overlay.id = 'play_black_overlay';
+    overlay.style.position = 'absolute';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'black';
+    overlay.style.zIndex = '1';
+    overlay.style.display = 'none';
+    overlay.style.pointerEvents = 'none';
+    document.getElementById('scene2').appendChild(overlay);
+    Play_black_overlay = overlay;
+}
+
+function Play_ShowBlackOverlay() {
+    Play_EnsureBlackOverlay();
+    if (Play_black_overlay) Play_black_overlay.style.display = 'block';
+}
+
+function Play_HideBlackOverlay() {
+    if (Play_black_overlay) Play_black_overlay.style.display = 'none';
+}
+
+function Play_UseAvplay() {
+    if (Play_avplay_hls_player) Play_avplay_hls_player.pause();
+    Play_SetHlsVisible(false);
+    Play_SetAvplayVisible(true);
+}
+
+function Play_UseHls() {
+    Play_SetAvplayVisible(false);
+    Play_SetHlsVisible(true);
+}
+
+function PlayNonStream_OpenUrl(url) {
+    try {
+        Play_StopAndClose();
+        Play_OpenUrl(url);
+    } catch (e) {
+        console.log('PlayNonStream_OpenUrl open url', url);
+        console.trace('PlayNonStream_OpenUrl open', e);
     }
 }
 
@@ -419,22 +505,26 @@ function Play_setDisplayRect(isfull) {
     if (res) Is_4_by_3 = parseInt(res[0]) / parseInt(res[1]) < 1.7;
 
     try {
-        // Play_avplay.setDisplayMethod(Is_4_by_3 ? 'PLAYER_DISPLAY_MODE_LETTER_BOX' : 'PLAYER_DISPLAY_MODE_FULL_SCREEN');
+        if (Main_IsNotBrowser && Play_avplay) {
+            Play_avplay.setDisplayMethod(Is_4_by_3 ? 'PLAYER_DISPLAY_MODE_LETTER_BOX' : 'PLAYER_DISPLAY_MODE_FULL_SCREEN');
+        }
     } catch (e) {
         console.log('setDisplayMethod Is_4_by_3 ' + Is_4_by_3 + ' e ' + e);
     }
 
     if (isfull) {
         try {
-            // Play_avplay.setDisplayRect(0, 0, screen.width, screen.height);
+            if (Main_IsNotBrowser && Play_avplay) Play_avplay.setDisplayRect(0, 0, screen.width, screen.height);
         } catch (e) {
             console.log(e + ' Play_SetFullScreen true');
         }
     } else {
         // Chat is 25% of the screen, resize to 75% and center left
         try {
-            // if (Is_4_by_3) Play_avplay.setDisplayRect(0, 0, screen.width * 0.75, screen.height);
-            // else Play_avplay.setDisplayRect(0, (screen.height * 0.25) / 2, screen.width * 0.75, screen.height * 0.75);
+            if (Main_IsNotBrowser && Play_avplay) {
+                if (Is_4_by_3) Play_avplay.setDisplayRect(0, 0, screen.width * 0.75, screen.height);
+                else Play_avplay.setDisplayRect(0, (screen.height * 0.25) / 2, screen.width * 0.75, screen.height * 0.75);
+            }
         } catch (e) {
             console.log(e + ' Play_SetFullScreen false');
         }
@@ -448,6 +538,8 @@ function Play_SetChatFont() {
 function Play_Start() {
     // Play_showBufferDialog();
     Play_ResetProxy();
+    Play_ShowBlackOverlay();
+    if (Play_avplay_hls_player) Play_avplay_hls_player.style.visibility = 'hidden';
 
     Main_empty('stream_info_title');
     Play_LoadLogoSucess = false;
@@ -1159,8 +1251,23 @@ function Play_extractQualities(input) {
         } else tempCount++;
     }
 
+    result.sort(function (a, b) {
+        var ah = 0;
+        var bh = 0;
+
+        if (a.resolution && a.resolution.indexOf('x') !== -1) ah = parseInt(a.resolution.split('x')[1]) || 0;
+        if (b.resolution && b.resolution.indexOf('x') !== -1) bh = parseInt(b.resolution.split('x')[1]) || 0;
+
+        if (ah !== bh) return bh - ah;
+
+        var ab = parseFloat((a.band || '').replace(' | ', '').replace('Mbps', '')) || 0;
+        var bb = parseFloat((b.band || '').replace(' | ', '').replace('Mbps', '')) || 0;
+        return bb - ab;
+    });
+
     return result;
 }
+
 
 function Play_extractBand(input) {
     input = parseInt(input);
@@ -1291,78 +1398,20 @@ function Play_onPlayer() {
     if (Main_IsNotBrowser) {
         Play_loadChat();
 
-        Play_StopAndCloseAndPlay(Play_playingUrl);
-
-        // Play_avplay.setBufferingParam('PLAYER_BUFFER_FOR_PLAY', 'PLAYER_BUFFER_SIZE_IN_SECOND', Play_Buffer);
-        // Play_avplay.setBufferingParam('PLAYER_BUFFER_FOR_RESUME', 'PLAYER_BUFFER_SIZE_IN_SECOND', Play_Buffer);
-
-        //Old 4k check no longer used because causes problem
-        //leave it here to be recheck on a future 4k streams from twitch
-        //if (Main_Is4k && !Play_4K_ModeEnable) {
-        //    Play_avplay.setStreamingProperty("SET_MODE_4K", "TRUE");
-        //    Play_4K_ModeEnable = true;
-        //}
-
+        Play_PlayHLSUrl(Play_playingUrl);
         Play_SetFullScreen(Play_isFullScreen);
-        // Play_avplay.setListener(Play_listener);
         Play_offsettime = Play_oldcurrentTime;
 
         try {
-            //Disabled closed caption as ins't properly supported by all devices
+            //Disabled closed caption as isn't properly supported by all devices
             // Play_avplay.setSilentSubtitle(true);
         } catch (e) {
             console.log('PlayVod_onPlayer open ' + e);
         }
 
-        console.log('Before Play_avplay.prepareAsync:', 'date: ' + new Date());
-
         // Start stream in HLS player
         Play_avplay_hls_player.play();
         if (Play_ChatEnable && !Play_isChatShown()) Play_showChat();
-
-        //Use prepareAsync as prepare() only can freeze up the app
-        /*
-        Play_avplay.prepareAsync(
-            function () {
-                //successCallback
-
-                console.log('Play_avplay.prepareAsync Live OK:', 'date: ' + new Date());
-
-                try {
-                    //GET_LIVE_DURATION not supported by all TVs
-                    if (Play_LowLatency) Play_avplay.seekTo(Play_avplay.getStreamingProperty('GET_LIVE_DURATION').split('|')[1] - 3000);
-                } catch (e) {}
-
-                Play_avplay.play();
-                Play_Playing = true;
-                if (Play_ChatEnable && !Play_isChatShown()) Play_showChat();
-
-                Play_PlayerCheckCount = 0;
-                Play_PlayerCheckTimer = 1 + Play_Buffer * 2;
-                Play_PlayerCheckQualityChanged = false;
-                window.clearInterval(Play_streamCheckId);
-                Play_streamCheckId = window.setInterval(Play_PlayerCheck, Play_PlayerCheckInterval);
-            },
-            function () {
-                //errorCallback
-                console.log('Play_avplay.prepareAsync Live NOK:', 'date: ' + new Date());
-                console.log('Play_avplay.prepareAsync Live NOK:', 'counter: ' + Play_onPlayerCounter);
-
-                Play_onPlayerCounter++;
-                if (Play_onPlayerCounter < 2) {
-                    //try twice to recover else lower the quality
-                    Play_onPlayer();
-                } else if (Play_qualityIndex < Play_getQualitiesCount() - 1) {
-                    console.log('Play_avplay.prepareAsync Live NOK DropOneQuality:', 'date: ' + new Date());
-                    //some device will error out due to codec issue that affect only the main Source stream quality
-                    Play_DropOneQuality();
-                } else {
-                    console.log('Play_avplay.prepareAsync Live fail too much exit:', 'date: ' + new Date());
-                    Play_EndStart(false, 1);
-                }
-            }
-        );
-        */
     } else Play_loadChat();
 }
 
@@ -1483,9 +1532,19 @@ function Play_CheckConnection(counter, PlayVodClip, DropOneQuality) {
 }
 
 function Play_isNotplaying() {
-    // if (Main_IsNotBrowser) return Play_avplay.getState() !== 'PLAYING';
-    if (Main_IsNotBrowser) return true;
-    return false;
+    if (!Main_IsNotBrowser) return false;
+
+    if (PlayVod_isOn && PlayVod_useHls) return !Play_avplay_hls_player || Play_avplay_hls_player.paused;
+    if (Play_isOn) return !Play_avplay_hls_player || Play_avplay_hls_player.paused;
+    if (PlayClip_isOn) {
+        try {
+            return Play_avplay.getState() !== 'PLAYING';
+        } catch (e) {
+            return true;
+        }
+    }
+
+    return true;
 }
 
 function Play_clock() {
@@ -1572,6 +1631,8 @@ function Play_PreshutdownStream(closePlayer) {
     if (closePlayer) Play_isOn = false;
     if (!Play_isEndDialogVisible() || closePlayer) UserLiveFeed_Hide(true);
 
+    Play_ShowBlackOverlay();
+    if (Play_avplay_hls_player) Play_avplay_hls_player.style.visibility = 'hidden';
     Play_ClearPlay(closePlayer);
     Play_ClearPlayer();
     Main_values.Play_selectedChannel_id = '';
@@ -1589,6 +1650,7 @@ function Play_exitMain() {
         Play_setFollow();
     } else Play_hideFollow();
 
+    Play_HideBlackOverlay();
     UserLiveFeed_PreventHide = false;
     PlayVod_ProgresBarrUpdate(0, 0);
     Main_ShowElement('scene1');
@@ -1873,10 +1935,9 @@ function Play_KeyPause(PlayVodClip) {
         if (Main_IsNotBrowser) {
             try {
                 webapis.appcommon.setScreenSaver(webapis.appcommon.AppCommonScreenSaverState.SCREEN_SAVER_OFF);
-                // Play_avplay.play();
-
-                // Start stream in HLS player
-                Play_avplay_hls_player.play();
+                if (PlayVodClip === 2 && PlayVod_useHls && Play_avplay_hls_player) Play_avplay_hls_player.play();
+                else if (PlayVodClip === 3 && Play_avplay) Play_avplay.play();
+                else if (Play_avplay_hls_player) Play_avplay_hls_player.play();
             } catch (e) {
                 console.log('Play_avplay.pause: ' + e);
                 return;
@@ -1903,13 +1964,16 @@ function Play_KeyPause(PlayVodClip) {
         if (Main_IsNotBrowser) {
             try {
                 webapis.appcommon.setScreenSaver(webapis.appcommon.AppCommonScreenSaverState.SCREEN_SAVER_ON);
-                // Play_avplay.pause();
+                if (PlayVodClip === 2 && PlayVod_useHls && Play_avplay_hls_player) Play_avplay_hls_player.pause();
+                else if (PlayVodClip === 3 && Play_avplay) Play_avplay.pause();
+                else if (Play_avplay_hls_player) Play_avplay_hls_player.pause();
             } catch (e) {
                 console.log('Play_avplay.pause: ' + e);
                 return;
             }
         }
         ChatLive_Playing = false;
+        Play_HideBufferDialog();
 
         window.clearInterval(Play_streamCheckId);
         window.clearInterval(PlayVod_streamCheckId);
@@ -2445,6 +2509,47 @@ function Play_KeyReturn(is_vod) {
     }
 }
 
+function Play_PlayHLSUrl(url) {
+    console.log('Play_PlayHLSUrl url:', url);
+
+    if (!url) {
+        console.error('HLS URL пустой!');
+        return;
+    }
+
+    try {
+        Play_showBufferDialog();
+        Play_ShowBlackOverlay();
+        Play_SetAvplayVisible(false);
+        // Убираем предыдущий плеер
+        if (hls) {
+            hls.destroy();
+            hls = null;
+        }
+
+        // Убираем старый <video>
+        if (Play_avplay_hls_player) {
+            Play_avplay_hls_player.style.visibility = 'hidden';
+            Play_avplay_hls_player.pause();
+            Play_SetHlsVisible(false);
+            Play_avplay_hls_player.removeAttribute('src');
+            Play_avplay_hls_player.load();
+            Play_avplay_hls_player.remove();
+        }
+
+        // Создаём новый <video> для HLS
+        initHLSPlayer();  // создаёт Play_avplay_hls_player и hls
+
+        // Загружаем URL
+        hls.loadSource(url);
+        hls.attachMedia(Play_avplay_hls_player);
+        Play_SetHlsVisible(true);
+        Play_avplay_hls_player.play();
+    } catch (e) {
+        console.error('Ошибка запуска HLS:', e);
+    }
+}
+
 function Play_handleKeyUp(e) {
     if (e.keyCode === KEY_UP) {
         Play_handleKeyUpEndClear();
@@ -2532,24 +2637,7 @@ function Play_RestorePlayDataValues() {
 
 function Play_handleKeyDown(e) {
     // if (Play_state !== Play_STATE_PLAYING) {
-    if (Play_avplay_hls_player.paused) {
-        switch (e.keyCode) {
-            case KEY_RETURN_Q:
-            case KEY_KEYBOARD_BACKSPACE:
-            case KEY_RETURN:
-                if (Play_ExitDialogVisible() || Play_SingleClickExit) {
-                    Play_CleanHideExit();
-                    Play_hideChat();
-                    Play_shutdownStream();
-                } else {
-                    Play_showExitDialog();
-                }
-                break;
-            default:
-                break;
-        }
-    } else {
-        switch (e.keyCode) {
+    switch (e.keyCode) {
             case KEY_LEFT:
                 if (UserLiveFeed_isFeedShow() && (!Play_EndFocus || !Play_isEndDialogVisible())) {
                     if (Play_FeedPos && !UserLiveFeed_loadingData) {
@@ -2695,7 +2783,6 @@ function Play_handleKeyDown(e) {
                 break;
             default:
                 break;
-        }
     }
 }
 

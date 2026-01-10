@@ -45,6 +45,14 @@ var PlayClip_ExtraClipInfo =
 function PlayClip_Start() {
     Play_showBufferDialog();
     Play_HideEndDialog();
+    Play_ShowBlackOverlay();
+    if (Play_avplay_hls_player) {
+        Play_avplay_hls_player.style.visibility = 'hidden';
+        Play_avplay_hls_player.pause();
+        Play_SetHlsVisible(false);
+        Play_avplay_hls_player.removeAttribute('src');
+        Play_avplay_hls_player.load();
+    }
 
     PlayClip_HasVOD = Main_values.ChannelVod_vodId !== null;
     Chat_title = STR_CLIP + '.';
@@ -469,7 +477,9 @@ function PlayClip_onPlayer() {
     console.log('PlayClip_onPlayer:', '\n' + '\n"' + PlayClip_playingUrl + '"\n');
 
     if (Main_IsNotBrowser) {
-        Play_StopAndCloseAndPlay(PlayClip_playingUrl);
+        Play_ShowBlackOverlay();
+        Play_UseAvplay();
+        PlayNonStream_OpenUrl(PlayClip_playingUrl);
 
         if (PlayClip_offsettime > 0 && PlayClip_offsettime !== Play_avplay.getCurrentTime()) {
             try {
@@ -494,6 +504,8 @@ function PlayClip_onPlayer() {
                 Play_avplay.play();
                 PlayClip_DurationSeconds = Play_avplay.getDuration() / 1000;
                 Main_textContent('progress_bar_duration', Play_timeS(PlayClip_DurationSeconds));
+                Play_HideBufferDialog();
+                Play_HideBlackOverlay();
                 if (Play_ChatEnable && !Play_isChatShown()) Play_showChat();
 
                 PlayClip_PlayerCheckCount = 0;
