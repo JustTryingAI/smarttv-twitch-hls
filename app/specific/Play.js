@@ -1114,10 +1114,10 @@ function Play_extractQualities(input) {
         if (!a || !b) {
             return 0;
         }
-        
+
         var resA = parseInt(a.resolution.split('p')[0]);
         var resB = parseInt(b.resolution.split('p')[0]);
-        
+
         return resB - resA;
     });
 

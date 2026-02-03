@@ -7718,33 +7718,6 @@
         xmlHttp.send(null);
     }
 
-    var Main_GetHostBaseUrl =
-        '{"operationName":"UseHosting","variables":{"channelLogin":"%x"},"extensions":{"persistedQuery":{"version": 1,"sha256Hash":"427f55a3daca510f726c02695a898ef3a0de4355b39af328848876052ea6b337"}}}';
-
-    function Main_GetHost(callbackSucess, checkResult, channel) {
-        var xmlHttp = new XMLHttpRequest();
-
-        xmlHttp.open('POST', PlayClip_BaseClipUrl, true);
-        xmlHttp.timeout = 25000;
-        xmlHttp.setRequestHeader(Main_clientIdHeader, Main_Headers_Backup[0][1]);
-        xmlHttp.setRequestHeader('Content-Type', 'application/json');
-
-        xmlHttp.ontimeout = function() {};
-
-        xmlHttp.onreadystatechange = function() {
-            if (this.readyState === 4) {
-                callbackSucess(this, checkResult);
-
-                console.log('Main_GetHost status', xmlHttp.status);
-                console.log('Main_GetHost responseText', xmlHttp.responseText);
-            }
-        };
-
-        xmlHttp.send(
-            Main_GetHostBaseUrl.replace('%x', channel) //postMessage, null for get
-        );
-    }
-
     var Main_VideoSizeAll = ['384x216', '512x288', '640x360', '896x504', '1280x720'];
     var Main_GameSizeAll = ['179x250', '272x380', '340x475', '476x665', '773x1080'];
     var Main_SidePannelSizeAll = ['640x360', '896x504', '1280x720', '1536x864', '1920x1080'];
@@ -9914,14 +9887,14 @@
             Main_SaveValues();
         } else if (Play_selectedChannel_id_Old !== null) Play_RestorePlayData(error_410);
         else if (Isforbiden) Play_ForbiddenLive();
-        else Play_CheckHostStart(error_410);
+        else Play_CheckEndStart(error_410);
     }
 
     function Play_ForbiddenLive() {
         Play_HideBufferDialog();
         Play_showWarningDialog(STR_FORBIDDEN);
         window.setTimeout(function() {
-            if (Play_isOn) Play_CheckHostStart();
+            if (Play_isOn) Play_CheckEndStart();
         }, 4000);
     }
 
@@ -10158,12 +10131,12 @@
             if (Play_currentTime !== currentTime) Play_updateCurrentTime(currentTime);
         },
         onstreamcompleted: function() {
-            Play_CheckHostStart();
+            Play_CheckEndStart();
             console.log('onstreamcompleted:', 'date: ' + new Date());
         },
         onerror: function(eventType) {
             console.log('onerror:', 'date: ' + new Date() + ' eventType: ' + eventType);
-            if (eventType === 'PLAYER_ERROR_CONNECTION_FAILED' || eventType === 'PLAYER_ERROR_INVALID_URI') Play_CheckHostStart();
+            if (eventType === 'PLAYER_ERROR_CONNECTION_FAILED' || eventType === 'PLAYER_ERROR_INVALID_URI') Play_CheckEndStart();
         }
     };
 
@@ -10338,7 +10311,7 @@
             if (Play_qualityIndex < Play_getQualitiesCount() - 1) {
                 Play_qualityIndex++;
             } else {
-                Play_CheckHostStart();
+                Play_CheckEndStart();
                 return;
             }
         }
@@ -11198,7 +11171,7 @@
         if (PlayVodClip === 1) {
             //live
             window.clearInterval(Play_streamCheckId);
-            Play_CheckHostStart();
+            Play_CheckEndStart();
         } else {
             Play_PlayEndStart(PlayVodClip);
         }
@@ -11216,7 +11189,7 @@
         Play_showEndDialog();
     }
 
-    function Play_CheckHostStart(error_410) {
+    function Play_CheckEndStart(error_410) {
         if (Main_IsNotBrowser) webapis.appcommon.setScreenSaver(webapis.appcommon.AppCommonScreenSaverState.SCREEN_SAVER_OFF);
 
         if (error_410) {
@@ -11224,85 +11197,9 @@
             Play_showWarningDialog(STR_410_ERROR);
         }
 
-        Play_showBufferDialog();
-        Play_state = -1;
-        Play_loadingDataTry = 0;
-        Play_loadingDataTimeout = 2000;
-        ChatLive_Clear();
-        window.clearInterval(Play_streamInfoTimerId);
-        window.clearInterval(Play_streamCheckId);
-        if (Main_values.Play_selectedChannel_id !== '') Play_loadDataCheckHost();
-        //else Play_CheckId();
-    }
-
-    // function Play_CheckId() {
-    //     BasexmlHttpGet(
-    //         'https://api.twitch.tv/kraken/users?login=' + Main_values.Play_selectedChannel,
-    //         Play_loadingDataTimeout,
-    //         2,
-    //         null,
-    //         Play_CheckIdValue,
-    //         Play_CheckIdError,
-    //         false
-    //     );
-    // }
-
-    // function Play_CheckIdValue(musers) {
-    //     musers = JSON.parse(musers).users[0];
-    //     if (musers !== undefined) {
-    //         Main_values.Play_selectedChannel_id = musers._id;
-    //         Play_loadingDataTry = 0;
-    //         Play_loadingDataTimeout = 2000;
-    //         Play_loadDataCheckHost();
-    //     } else Play_PlayEndStart(1);
-    // }
-
-    // function Play_CheckIdError() {
-    //     Play_loadingDataTry++;
-    //     if (Play_loadingDataTry < Play_loadingDataTryMax) {
-    //         Play_loadingDataTimeout += 250;
-    //         Play_CheckId();
-    //     } else Play_EndStart(false, 1);
-    // }
-
-    var Play_loadDataCheckHostId;
-
-    function Play_loadDataCheckHost() {
-        Play_loadDataCheckHostId = new Date().getTime();
-
-        Main_GetHost(Play_CheckHost, Play_loadDataCheckHostId, Main_values.Main_selectedChannel);
-    }
-
-    function Play_CheckHost(responseObj, id) {
-        if (Play_isOn && Play_loadDataCheckHostId === id) {
-            if (responseObj.status === 200) {
-                var data = JSON.parse(responseObj.responseText).data;
-
-                if (data && data.user && data.user.hosting) {
-                    var response = data.user.hosting;
-
-                    Play_TargetHost = response;
-
-                    Play_IsWarning = true;
-                    Play_showWarningDialog(Main_values.Play_selectedChannelDisplayname + STR_IS_NOW + STR_USER_HOSTING + Play_TargetHost.displayName);
-
-                    window.setTimeout(function() {
-                        Play_IsWarning = false;
-                    }, 4000);
-
-                    Play_EndSet(0);
-                    Main_values.Play_isHost = true;
-
-                    Play_PlayEndStart(1);
-
-                    return;
-                }
-            }
-
-            Play_EndSet(1);
-            Main_values.Play_isHost = false;
-            Play_PlayEndStart(1);
-        }
+        Play_EndSet(1);
+        Main_values.Play_isHost = false;
+        Play_PlayEndStart(1);
     }
 
     function Play_setFollow() {
