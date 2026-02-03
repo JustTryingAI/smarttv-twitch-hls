@@ -166,7 +166,7 @@ function ChannelContent_CheckHost(responseObj, id) {
         if (responseObj.status === 200) {
             var data = JSON.parse(responseObj.responseText).data;
 
-            if (data.user && data.user.hosting) {
+            if (data && data.user && data.user.hosting) {
                 var response = data.user.hosting;
 
                 ChannelContent_TargetId = response.id;
