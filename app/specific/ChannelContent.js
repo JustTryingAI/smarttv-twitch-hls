@@ -128,9 +128,6 @@ function ChannelContent_loadDataRequestSuccess(response) {
         ChannelContent_loadDataPrepare();
         ChannelContent_GetStreamerInfo();
     } else if (!ChannelContent_TargetId) {
-        ChannelContent_loadDataPrepare();
-        ChannelContent_loadDataCheckHost();
-    } else {
         ChannelContent_responseText = null;
         ChannelContent_loadDataPrepare();
         ChannelContent_GetStreamerInfo();
@@ -144,40 +141,14 @@ function ChannelContent_loadDataError() {
         ChannelContent_loadingDataTimeout += 500;
         ChannelContent_loadDataRequest();
     } else {
-        ChannelContent_loadDataCheckHostError();
+        ChannelContent_loadDataCheckError();
     }
 }
 
-var ChannelContent_loadDataCheckHostId;
-function ChannelContent_loadDataCheckHost() {
-    ChannelContent_loadDataCheckHostId = new Date().getTime();
-
-    Main_GetHost(ChannelContent_CheckHost, ChannelContent_loadDataCheckHostId, Main_values.Main_selectedChannel);
-}
-
-function ChannelContent_loadDataCheckHostError() {
+function ChannelContent_loadDataCheckError() {
     ChannelContent_responseText = null;
     ChannelContent_loadDataPrepare();
     ChannelContent_GetStreamerInfo();
-}
-
-function ChannelContent_CheckHost(responseObj, id) {
-    if (ChannelContent_loadDataCheckHostId === id) {
-        if (responseObj.status === 200) {
-            var data = JSON.parse(responseObj.responseText).data;
-
-            if (data && data.user && data.user.hosting) {
-                var response = data.user.hosting;
-
-                ChannelContent_TargetId = response.id;
-                ChannelContent_loadDataRequest();
-
-                return;
-            }
-        }
-
-        ChannelContent_loadDataCheckHostError();
-    }
 }
 
 function ChannelContent_GetStreamerInfo() {
