@@ -1309,33 +1309,6 @@ function BasexmlHttpGet(theUrl, Timeout, HeaderQuantity, access_token, callbackS
     xmlHttp.send(null);
 }
 
-var Main_GetHostBaseUrl =
-    '{"operationName":"UseHosting","variables":{"channelLogin":"%x"},"extensions":{"persistedQuery":{"version": 1,"sha256Hash":"427f55a3daca510f726c02695a898ef3a0de4355b39af328848876052ea6b337"}}}';
-
-function Main_GetHost(callbackSucess, checkResult, channel) {
-    var xmlHttp = new XMLHttpRequest();
-
-    xmlHttp.open('POST', PlayClip_BaseClipUrl, true);
-    xmlHttp.timeout = 25000;
-    xmlHttp.setRequestHeader(Main_clientIdHeader, Main_Headers_Backup[0][1]);
-    xmlHttp.setRequestHeader('Content-Type', 'application/json');
-
-    xmlHttp.ontimeout = function () {};
-
-    xmlHttp.onreadystatechange = function () {
-        if (this.readyState === 4) {
-            callbackSucess(this, checkResult);
-
-            console.log('Main_GetHost status', xmlHttp.status);
-            console.log('Main_GetHost responseText', xmlHttp.responseText);
-        }
-    };
-
-    xmlHttp.send(
-        Main_GetHostBaseUrl.replace('%x', channel) //postMessage, null for get
-    );
-}
-
 var Main_VideoSizeAll = ['384x216', '512x288', '640x360', '896x504', '1280x720'];
 var Main_GameSizeAll = ['179x250', '272x380', '340x475', '476x665', '773x1080'];
 var Main_SidePannelSizeAll = ['640x360', '896x504', '1280x720', '1536x864', '1920x1080'];
