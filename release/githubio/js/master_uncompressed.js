@@ -2555,7 +2555,7 @@
         var theUrl =
             Main_helix_api +
             'streams?user_id=' +
-            encodeURIComponent(ChannelContent_TargetId !== undefined ? ChannelContent_TargetId : Main_values.Main_selectedChannel_id);
+            encodeURIComponent(ChannelContent_TargetId ? ChannelContent_TargetId : Main_values.Main_selectedChannel_id);
 
         BasexmlHttpGet(
             theUrl,
@@ -2573,14 +2573,11 @@
     function ChannelContent_loadDataRequestSuccess(response) {
         var obj = JSON.parse(response);
 
-        if (obj.data && obj.data.length) {
+        if (obj && obj.data && obj.data.length) {
             ChannelContent_responseText = obj.data;
             ChannelContent_loadDataPrepare();
             ChannelContent_GetStreamerInfo();
         } else if (!ChannelContent_TargetId) {
-            ChannelContent_loadDataPrepare();
-            ChannelContent_loadDataCheckHost();
-        } else {
             ChannelContent_responseText = null;
             ChannelContent_loadDataPrepare();
             ChannelContent_GetStreamerInfo();
@@ -2589,45 +2586,19 @@
 
     function ChannelContent_loadDataError() {
         ChannelContent_loadingDataTry++;
+
         if (ChannelContent_loadingDataTry < ChannelContent_loadingDataTryMax) {
             ChannelContent_loadingDataTimeout += 500;
             ChannelContent_loadDataRequest();
         } else {
-            ChannelContent_loadDataCheckHostError();
+            ChannelContent_loadDataCheckError();
         }
     }
 
-    var ChannelContent_loadDataCheckHostId;
-
-    function ChannelContent_loadDataCheckHost() {
-        ChannelContent_loadDataCheckHostId = new Date().getTime();
-
-        Main_GetHost(ChannelContent_CheckHost, ChannelContent_loadDataCheckHostId, Main_values.Main_selectedChannel);
-    }
-
-    function ChannelContent_loadDataCheckHostError() {
+    function ChannelContent_loadDataCheckError() {
         ChannelContent_responseText = null;
         ChannelContent_loadDataPrepare();
         ChannelContent_GetStreamerInfo();
-    }
-
-    function ChannelContent_CheckHost(responseObj, id) {
-        if (ChannelContent_loadDataCheckHostId === id) {
-            if (responseObj.status === 200) {
-                var data = JSON.parse(responseObj.responseText).data;
-
-                if (data.user && data.user.hosting) {
-                    var response = data.user.hosting;
-
-                    ChannelContent_TargetId = response.id;
-                    ChannelContent_loadDataRequest();
-
-                    return;
-                }
-            }
-
-            ChannelContent_loadDataCheckHostError();
-        }
     }
 
     function ChannelContent_GetStreamerInfo() {
@@ -2650,7 +2621,7 @@
     function ChannelContent_GetStreamerInfoSuccess(responseText) {
         var obj = JSON.parse(responseText);
 
-        if (obj.data && obj.data.length) {
+        if (obj && obj.data && obj.data.length) {
             var channel = obj.data[0];
             ChannelContent_offline_image = channel.offline_image_url;
             ChannelContent_offline_image = ChannelContent_offline_image ?
@@ -2665,7 +2636,7 @@
 
             ChannelContent_BannerFollowers();
         } else {
-            ChannelContent_loadDataError();
+            ChannelContent_loadDataSuccess();
         }
     }
 
@@ -2686,7 +2657,7 @@
                 if (xmlHttp.status === 200) {
                     var obj = JSON.parse(xmlHttp.responseText);
 
-                    if (obj.data && obj.data.user) {
+                    if (obj && obj.data && obj.data.user) {
                         ChannelContent_profile_banner = obj.data.user.bannerImageURL ? obj.data.user.bannerImageURL : IMG_404_BANNER;
                         ChannelContent_selectedChannelFollower =
                             obj.data.user.followers && obj.data.user.followers.totalCount ? obj.data.user.followers.totalCount : '';
@@ -4782,7 +4753,7 @@
         if (id !== Chat_Id[chat_number]) return;
         //Main_Log('ChatLive_loadChatRequest');
 
-        ChatLive_socket[chat_number] = new WebSocket('ws://irc-ws.chat.twitch.tv', 'irc');
+        ChatLive_socket[chat_number] = new WebSocket('wss://irc-ws.chat.twitch.tv:443', 'irc');
 
         ChatLive_socket[chat_number].onopen = function() {
             if (useToken[chat_number]) {
@@ -5122,7 +5093,7 @@
     function ChatLive_SendPrepared(chat_number, id) {
         //Main_Log('ChatLive_SendPrepared');
 
-        ChatLive_socketSend = new WebSocket('ws://irc-ws.chat.twitch.tv', 'irc');
+        ChatLive_socketSend = new WebSocket('wss://irc-ws.chat.twitch.tv:443', 'irc');
 
         ChatLive_socketSend.onopen = function() {
             var username = AddUser_UsernameArray[0].name.toLowerCase();
@@ -6558,7 +6529,7 @@
 
     var Main_version = 401;
     var Main_stringVersion_Min = '4.0.1';
-    var Main_minversion = 'September 17 2024 - 4';
+    var Main_minversion = 'January 2025';
     var Main_versionTag = Main_stringVersion_Min + '-' + Main_minversion;
     var Main_IsNotBrowserVersion = '';
 
@@ -7745,33 +7716,6 @@
         };
 
         xmlHttp.send(null);
-    }
-
-    var Main_GetHostBaseUrl =
-        '{"operationName":"UseHosting","variables":{"channelLogin":"%x"},"extensions":{"persistedQuery":{"version": 1,"sha256Hash":"427f55a3daca510f726c02695a898ef3a0de4355b39af328848876052ea6b337"}}}';
-
-    function Main_GetHost(callbackSucess, checkResult, channel) {
-        var xmlHttp = new XMLHttpRequest();
-
-        xmlHttp.open('POST', PlayClip_BaseClipUrl, true);
-        xmlHttp.timeout = 25000;
-        xmlHttp.setRequestHeader(Main_clientIdHeader, Main_Headers_Backup[0][1]);
-        xmlHttp.setRequestHeader('Content-Type', 'application/json');
-
-        xmlHttp.ontimeout = function() {};
-
-        xmlHttp.onreadystatechange = function() {
-            if (this.readyState === 4) {
-                callbackSucess(this, checkResult);
-
-                console.log('Main_GetHost status', xmlHttp.status);
-                console.log('Main_GetHost responseText', xmlHttp.responseText);
-            }
-        };
-
-        xmlHttp.send(
-            Main_GetHostBaseUrl.replace('%x', channel) //postMessage, null for get
-        );
     }
 
     var Main_VideoSizeAll = ['384x216', '512x288', '640x360', '896x504', '1280x720'];
@@ -9943,14 +9887,14 @@
             Main_SaveValues();
         } else if (Play_selectedChannel_id_Old !== null) Play_RestorePlayData(error_410);
         else if (Isforbiden) Play_ForbiddenLive();
-        else Play_CheckHostStart(error_410);
+        else Play_CheckEndStart(error_410);
     }
 
     function Play_ForbiddenLive() {
         Play_HideBufferDialog();
         Play_showWarningDialog(STR_FORBIDDEN);
         window.setTimeout(function() {
-            if (Play_isOn) Play_CheckHostStart();
+            if (Play_isOn) Play_CheckEndStart();
         }, 4000);
     }
 
@@ -10076,6 +10020,18 @@
             } else tempCount++;
         }
 
+        //sort based on resolution as it may not come sorted
+        result.sort(function(a, b) {
+            if (!a || !b) {
+                return 0;
+            }
+
+            var resA = parseInt(a.resolution.split('p')[0]);
+            var resB = parseInt(b.resolution.split('p')[0]);
+
+            return resB - resA;
+        });
+
         return result;
     }
 
@@ -10175,12 +10131,12 @@
             if (Play_currentTime !== currentTime) Play_updateCurrentTime(currentTime);
         },
         onstreamcompleted: function() {
-            Play_CheckHostStart();
+            Play_CheckEndStart();
             console.log('onstreamcompleted:', 'date: ' + new Date());
         },
         onerror: function(eventType) {
             console.log('onerror:', 'date: ' + new Date() + ' eventType: ' + eventType);
-            if (eventType === 'PLAYER_ERROR_CONNECTION_FAILED' || eventType === 'PLAYER_ERROR_INVALID_URI') Play_CheckHostStart();
+            if (eventType === 'PLAYER_ERROR_CONNECTION_FAILED' || eventType === 'PLAYER_ERROR_INVALID_URI') Play_CheckEndStart();
         }
     };
 
@@ -10355,7 +10311,7 @@
             if (Play_qualityIndex < Play_getQualitiesCount() - 1) {
                 Play_qualityIndex++;
             } else {
-                Play_CheckHostStart();
+                Play_CheckEndStart();
                 return;
             }
         }
@@ -11215,7 +11171,7 @@
         if (PlayVodClip === 1) {
             //live
             window.clearInterval(Play_streamCheckId);
-            Play_CheckHostStart();
+            Play_CheckEndStart();
         } else {
             Play_PlayEndStart(PlayVodClip);
         }
@@ -11233,7 +11189,7 @@
         Play_showEndDialog();
     }
 
-    function Play_CheckHostStart(error_410) {
+    function Play_CheckEndStart(error_410) {
         if (Main_IsNotBrowser) webapis.appcommon.setScreenSaver(webapis.appcommon.AppCommonScreenSaverState.SCREEN_SAVER_OFF);
 
         if (error_410) {
@@ -11241,85 +11197,9 @@
             Play_showWarningDialog(STR_410_ERROR);
         }
 
-        Play_showBufferDialog();
-        Play_state = -1;
-        Play_loadingDataTry = 0;
-        Play_loadingDataTimeout = 2000;
-        ChatLive_Clear();
-        window.clearInterval(Play_streamInfoTimerId);
-        window.clearInterval(Play_streamCheckId);
-        if (Main_values.Play_selectedChannel_id !== '') Play_loadDataCheckHost();
-        //else Play_CheckId();
-    }
-
-    // function Play_CheckId() {
-    //     BasexmlHttpGet(
-    //         'https://api.twitch.tv/kraken/users?login=' + Main_values.Play_selectedChannel,
-    //         Play_loadingDataTimeout,
-    //         2,
-    //         null,
-    //         Play_CheckIdValue,
-    //         Play_CheckIdError,
-    //         false
-    //     );
-    // }
-
-    // function Play_CheckIdValue(musers) {
-    //     musers = JSON.parse(musers).users[0];
-    //     if (musers !== undefined) {
-    //         Main_values.Play_selectedChannel_id = musers._id;
-    //         Play_loadingDataTry = 0;
-    //         Play_loadingDataTimeout = 2000;
-    //         Play_loadDataCheckHost();
-    //     } else Play_PlayEndStart(1);
-    // }
-
-    // function Play_CheckIdError() {
-    //     Play_loadingDataTry++;
-    //     if (Play_loadingDataTry < Play_loadingDataTryMax) {
-    //         Play_loadingDataTimeout += 250;
-    //         Play_CheckId();
-    //     } else Play_EndStart(false, 1);
-    // }
-
-    var Play_loadDataCheckHostId;
-
-    function Play_loadDataCheckHost() {
-        Play_loadDataCheckHostId = new Date().getTime();
-
-        Main_GetHost(Play_CheckHost, Play_loadDataCheckHostId, Main_values.Main_selectedChannel);
-    }
-
-    function Play_CheckHost(responseObj, id) {
-        if (Play_isOn && Play_loadDataCheckHostId === id) {
-            if (responseObj.status === 200) {
-                var data = JSON.parse(responseObj.responseText).data;
-
-                if (data.user && data.user.hosting) {
-                    var response = data.user.hosting;
-
-                    Play_TargetHost = response;
-
-                    Play_IsWarning = true;
-                    Play_showWarningDialog(Main_values.Play_selectedChannelDisplayname + STR_IS_NOW + STR_USER_HOSTING + Play_TargetHost.displayName);
-
-                    window.setTimeout(function() {
-                        Play_IsWarning = false;
-                    }, 4000);
-
-                    Play_EndSet(0);
-                    Main_values.Play_isHost = true;
-
-                    Play_PlayEndStart(1);
-
-                    return;
-                }
-            }
-
-            Play_EndSet(1);
-            Main_values.Play_isHost = false;
-            Play_PlayEndStart(1);
-        }
+        Play_EndSet(1);
+        Main_values.Play_isHost = false;
+        Play_PlayEndStart(1);
     }
 
     function Play_setFollow() {

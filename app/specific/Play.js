@@ -1117,14 +1117,14 @@ function Play_loadDataErrorFinish(error_410, Isforbiden) {
         Main_SaveValues();
     } else if (Play_selectedChannel_id_Old !== null) Play_RestorePlayData(error_410);
     else if (Isforbiden) Play_ForbiddenLive();
-    else Play_CheckHostStart(error_410);
+    else Play_CheckEndStart(error_410);
 }
 
 function Play_ForbiddenLive() {
     Play_HideBufferDialog();
     Play_showWarningDialog(STR_FORBIDDEN);
     window.setTimeout(function () {
-        if (Play_isOn) Play_CheckHostStart();
+        if (Play_isOn) Play_CheckEndStart();
     }, 4000);
 }
 
@@ -1365,12 +1365,12 @@ var Play_listener = {
         if (Play_currentTime !== currentTime) Play_updateCurrentTime(currentTime);
     },
     onstreamcompleted: function () {
-        Play_CheckHostStart();
+        Play_CheckEndStart();
         console.log('onstreamcompleted:', 'date: ' + new Date());
     },
     onerror: function (eventType) {
         console.log('onerror:', 'date: ' + new Date() + ' eventType: ' + eventType);
-        if (eventType === 'PLAYER_ERROR_CONNECTION_FAILED' || eventType === 'PLAYER_ERROR_INVALID_URI') Play_CheckHostStart();
+        if (eventType === 'PLAYER_ERROR_CONNECTION_FAILED' || eventType === 'PLAYER_ERROR_INVALID_URI') Play_CheckEndStart();
     }
 };
 
@@ -1493,7 +1493,7 @@ function Play_DropOneQuality(ConnectionDrop) {
         if (Play_qualityIndex < Play_getQualitiesCount() - 1) {
             Play_qualityIndex++;
         } else {
-            Play_CheckHostStart();
+            Play_CheckEndStart();
             return;
         }
     }
@@ -2372,7 +2372,7 @@ function Play_PannelEndStart(PlayVodClip) {
     if (PlayVodClip === 1) {
         //live
         window.clearInterval(Play_streamCheckId);
-        Play_CheckHostStart();
+        Play_CheckEndStart();
     } else {
         Play_PlayEndStart(PlayVodClip);
     }
@@ -2390,7 +2390,7 @@ function Play_PlayEndStart(PlayVodClip) {
     Play_showEndDialog();
 }
 
-function Play_CheckHostStart(error_410) {
+function Play_CheckEndStart(error_410) {
     if (Main_IsNotBrowser) webapis.appcommon.setScreenSaver(webapis.appcommon.AppCommonScreenSaverState.SCREEN_SAVER_OFF);
 
     if (error_410) {
