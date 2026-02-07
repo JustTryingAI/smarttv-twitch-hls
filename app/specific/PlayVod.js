@@ -54,6 +54,7 @@ var PlayVod_bufferingcomplete = false;
 var PlayVod_useHls = false;
 var PlayVod_hlsListenerBound = false;
 var PlayVod_switchingToHls = false;
+var PlayVod_hlsSeekApplied = false;
 //Variable initialization end
 
 function PlayVod_Start() {
@@ -62,6 +63,7 @@ function PlayVod_Start() {
     PlayVod_useHls = true;
     PlayVod_hlsListenerBound = false;
     PlayVod_switchingToHls = false;
+    PlayVod_hlsSeekApplied = false;
     PlayVod_currentTime = 0;
     Main_textContent('stream_live_time', '');
     Main_textContent('stream_watching_time', '');
@@ -667,6 +669,18 @@ function PlayVod_BindHlsListeners() {
         if (!PlayVod_isOn || !PlayVod_useHls) return;
         ChannelVod_DurationSeconds = Math.floor(Play_avplay_hls_player.duration || 0);
         if (ChannelVod_DurationSeconds) Main_textContent('progress_bar_duration', Play_timeS(ChannelVod_DurationSeconds));
+        if (Main_values.vodOffset && !PlayVod_replay && !PlayVod_hlsSeekApplied) {
+            try {
+                Play_avplay_hls_player.currentTime = Math.max(Main_values.vodOffset, 0);
+                PlayVod_hlsSeekApplied = true;
+                PlayVod_currentTime = Main_values.vodOffset * 1000;
+                PlayVod_ProgresBarrUpdate(Main_values.vodOffset, ChannelVod_DurationSeconds, true);
+                Chat_offset = Main_values.vodOffset;
+                if (PlayClip_HasVOD) Chat_Init();
+            } catch (e) {
+                console.log('PlayVod HLS seek error', e);
+            }
+        }
     };
 
     Play_avplay_hls_player.ontimeupdate = function () {
