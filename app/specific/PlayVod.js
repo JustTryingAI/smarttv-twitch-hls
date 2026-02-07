@@ -1111,7 +1111,8 @@ function PlayVod_jumpTime() {
 
 function PlayVod_jumpStart(multiplier, duration_seconds) {
     var currentTime = 0;
-    if (PlayVod_useHls && PlayVod_isOn && Play_avplay_hls_player) currentTime = Play_avplay_hls_player.currentTime || 0;
+    if (PlayClip_isOn && PlayClip_currentTime > 0) currentTime = PlayClip_currentTime / 1000;
+    else if (PlayVod_useHls && PlayVod_isOn && Play_avplay_hls_player) currentTime = Play_avplay_hls_player.currentTime || 0;
     else if (Main_IsNotBrowser) currentTime = Play_avplay.getCurrentTime() / 1000;
 
     window.clearTimeout(PlayVod_SizeClearID);
