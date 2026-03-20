@@ -217,6 +217,23 @@ var Play_offsettime = 0;
 var Play_offsettimeMinus = 0;
 //Variable initialization end
 
+function Play_GetHlsConfig() {
+    // Conservative profiles: LL reduces latency without aggressive auto-seek behavior.
+    if (Play_LowLatency) {
+        return {
+            lowLatencyMode: true,
+            liveSyncDurationCount: 2,
+            liveMaxLatencyDurationCount: 4
+        };
+    }
+
+    return {
+        lowLatencyMode: false,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 6
+    };
+}
+
 function initHLSPlayer() {
     // Create HTML5 <video> tag
     var video = document.createElement('video');
@@ -254,7 +271,7 @@ function initHLSPlayer() {
     document.getElementById('scene2').appendChild(video);
 
     // Initialize hls.js controller
-    hls = new Hls();
+    hls = new Hls(Play_GetHlsConfig());
     hls.on(Hls.Events.MEDIA_ATTACHED, function () {
       console.log('<video> and hls.js are now bound together !');
     });
